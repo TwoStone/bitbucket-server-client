@@ -1,4 +1,4 @@
-module github.com/TwoStone/bitbucket-go-client
+module github.com/TwoStone/bitbucket-server-client/go-client
 
 go 1.13
 

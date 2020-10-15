@@ -11,7 +11,7 @@ generate: update-version openapi-generator
 	GO_POST_PROCESS_FILE="go fmt" \
 	$(JAVA) -jar $(OPENAPI_GENERATOR_JAR) generate \
 	--git-user-id TwoStone \
-	--git-repo-id bitbucket-go-client \
+	--git-repo-id bitbucket-server-client/go-client \
   	--generator-name go-experimental \
   	--input-spec ../api/bitbucket-server-api.yaml \
   	--config hack/generator-config.yaml \
