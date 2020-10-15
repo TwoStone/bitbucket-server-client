@@ -1,0 +1,6 @@
+isGoSubmodule: false
+enumClassPrefix: true
+withGoCodegenComment: true
+withXml: false
+packageName: bitbucket
+packageVersion: 1.3.3

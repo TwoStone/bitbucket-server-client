@@ -1,0 +1,3538 @@
+openapi: 3.0.0
+info:
+  contact:
+    name: Niklas Walter
+    url: https://github.com/TwoStone/bitbucket-server-api
+  description: |-
+    <h1>REST Resources Provided By: Bitbucket Server - REST</h1>
+    <p>
+        This is the reference document for the Atlassian Bitbucket REST API. The REST API is for developers who want to:
+    </p>
+    <ul>
+        <li>integrate Bitbucket with other applications;</li>
+        <li>create scripts that interact with Bitbucket; or</li>
+        <li>develop plugins that enhance the Bitbucket UI, using REST to interact with the backend.</li>
+    </ul>
+    You can read more about developing Bitbucket plugins in the
+    <a href="https://developer.atlassian.com/server/bitbucket/">Bitbucket Developer Documentation</a>.
+    <p></p>
+    <h2 id="gettingstarted">Getting started</h2>
+    <p>
+        Because the REST API is based on open standards, you can use any web development language or command line tool
+        capable of generating an HTTP request to access the API. See the
+        <a href="https://developer.atlassian.com/server/bitbucket/reference/rest-api/">developer documentation</a> for a
+        basic
+        usage example.
+    </p>
+    <p>
+        If you're already working with the
+        <a href="https://developer.atlassian.com/server/framework/atlassian-sdk/">Atlassian SDK</a>,
+        the <a href="https://developer.atlassian.com/server/framework/atlassian-sdk/using-the-rest-api-browser/">REST API
+            Browser</a> is a great tool for exploring and experimenting with the Bitbucket REST API.
+    </p>
+    <h2>
+        <a name="StructureoftheRESTURIs"></a>Structure of the REST URIs</h2>
+    <p>
+        Bitbucket's REST APIs provide access to resources (data entities) via URI paths. To use a REST API, your application
+        will
+        make an HTTP request and parse the response. The Bitbucket REST API uses JSON as its communication format, and the
+        standard
+        HTTP methods like GET, PUT, POST and DELETE. URIs for Bitbucket's REST API resource have the following structure:
+    </p>
+    <pre>    http://host:port/context/rest/api-name/api-version/path/to/resource
+    </pre>
+    <p>
+        For example, the following URI would retrieve a page of the latest commits to the <strong>jira</strong> repository
+        in
+        the <strong>Jira</strong> project on <a href="https://stash.atlassian.com">https://stash.atlassian.com</a>.
+    </p>
+    <pre>    https://stash.atlassian.com/rest/api/1.0/projects/JIRA/repos/jira/commits
+    </pre>
+    <p>
+        See the API descriptions below for a full list of available resources.
+    </p>
+    <p>
+        Alternatively we also publish a list of resources in
+        <a href="http://en.wikipedia.org/wiki/Web_Application_Description_Language">WADL</a> format. It is available
+        <a href="bitbucket-rest.wadl">here</a>.
+    </p>
+    <h2 id="paging-params">Paged APIs</h2>
+    <p>
+        Bitbucket uses paging to conserve server resources and limit response size for resources that return potentially
+        large
+        collections of items. A request to a paged API will result in a <code>values</code> array wrapped in a JSON object
+        with some paging metadata, like this:
+    </p>
+    <pre>    {
+            "size": 3,
+            "limit": 3,
+            "isLastPage": false,
+            "values": [
+                { /* result 0 */ },
+                { /* result 1 */ },
+                { /* result 2 */ }
+            ],
+            "start": 0,
+            "filter": null,
+            "nextPageStart": 3
+        }
+    </pre>
+    <p>
+        Clients can use the <code>limit</code> and <code>start</code> query parameters to retrieve the desired number of
+        results.
+    </p>
+    <p>
+        The <code>limit</code> parameter indicates how many results to return per page. Most APIs default to returning
+        <code>25</code> if the limit is left unspecified. This number can be increased, but note that a resource-specific
+        hard limit will apply. These hard limits can be configured by server administrators, so it's always best practice to
+        check the <code>limit</code> attribute on the response to see what limit has been applied.
+        The request to get a larger page should look like this:
+    </p>
+    <pre>    http://host:port/context/rest/api-name/api-version/path/to/resource?limit={desired size of page}
+    </pre>
+    <p>
+        For example:
+    </p>
+    <pre>    https://stash.atlassian.com/rest/api/1.0/projects/JIRA/repos/jira/commits?limit=1000
+    </pre>
+    <p>
+        The <code>start</code> parameter indicates which item should be used as the first item in the page of results. All
+        paged responses contain an <code>isLastPage</code> attribute indicating whether another page of items exists.
+    </p>
+    <p><strong>Important:</strong> If more than one page exists (i.e. the response contains
+        <code>"isLastPage": false</code>), the response object will also contain a <code>nextPageStart</code> attribute
+        which <strong><em>must</em></strong> be used by the client as the <code>start</code> parameter on the next request.
+        Identifiers of adjacent objects in a page may not be contiguous, so the start of the next page is <em>not</em>
+        necessarily the start of the last page plus the last page's size. A client should always use
+        <code>nextPageStart</code> to avoid unexpected results from a paged API.
+        The request to get a subsequent page should look like this:
+    </p>
+    <pre>    http://host:port/context/rest/api-name/api-version/path/to/resource?start={nextPageStart from previous response}
+    </pre>
+    <p>
+        For example:
+    </p>
+    <pre>    https://stash.atlassian.com/rest/api/1.0/projects/JIRA/repos/jira/commits?start=25
+    </pre>
+    <h2 id="authentication">Authentication</h2>
+    <p>
+        Any authentication that works against Bitbucket will work against the REST API. <b>The preferred authentication
+            methods
+            are HTTP Basic (when using SSL) and OAuth</b>. Other supported methods include: HTTP Cookies and Trusted
+        Applications.
+    </p>
+    <p>
+        You can find OAuth code samples in several programming languages at
+        <a
+            href="https://bitbucket.org/atlassian_tutorial/atlassian-oauth-examples">bitbucket.org/atlassian_tutorial/atlassian-oauth-examples</a>.
+    </p>
+    <p>
+        The log-in page uses cookie-based authentication, so if you are using Bitbucket in a browser you can call REST from
+        JavaScript on the page and rely on the authentication that the browser has established.
+    </p>
+    <h2 id="errors-and-validation">Errors &amp; Validation</h2>
+    <p>
+        If a request fails due to client error, the resource will return an HTTP response code in the 40x range. These can
+        be broadly categorised into:
+    </p>
+    <table>
+        <tbody>
+            <tr>
+                <th>HTTP Code</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>400 (Bad Request)</td>
+                <td>
+                    One or more of the required parameters or attributes:
+                    <ul>
+                        <li>were missing from the request;</li>
+                        <li>incorrectly formatted; or</li>
+                        <li>inappropriate in the given context.</li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td>401 (Unauthorized)</td>
+                <td>
+                    Either:
+                    <ul>
+                        <li>Authentication is required but was not attempted.</li>
+                        <li>Authentication was attempted but failed.</li>
+                        <li>Authentication was successful but the authenticated user does not have the requisite permission
+                            for the resource.</li>
+                    </ul>
+                    See the individual resource documentation for details of required permissions.
+                </td>
+            </tr>
+            <tr>
+                <td>403 (Forbidden)</td>
+                <td>
+                    Actions are usually "forbidden" if they involve breaching the licensed user limit of the server, or
+                    degrading the authenticated user's permission level. See the individual resource documentation for more
+                    details.
+                </td>
+            </tr>
+            <tr>
+                <td>404 (Not Found)</td>
+                <td>
+                    The entity you are attempting to access, or the project or repository containing it, does not exist.
+                </td>
+            </tr>
+            <tr>
+                <td>405 (Method Not Allowed)</td>
+                <td>
+                    The request HTTP method is not appropriate for the targeted resource. For example an HTTP GET to a
+                    resource that only accepts an HTTP POST will result in a 405.
+                </td>
+            </tr>
+            <tr>
+                <td>409 (Conflict)</td>
+                <td>
+                    The attempted update failed due to some conflict with an existing resource. For example:
+                    <ul>
+                        <li>Creating a project with a key that already exists</li>
+                        <li>Merging an out-of-date pull request</li>
+                        <li>Deleting a comment that has replies</li>
+                        <li>etc.</li>
+                    </ul>
+                    See the individual resource documentation for more details.
+                </td>
+            </tr>
+            <tr>
+                <td>415 (Unsupported Media Type)</td>
+                <td>
+                    The request entity has a <code>Content-Type</code> that the server does not support. Almost all of the
+                    Bitbucket REST API accepts <code>application/json</code> format, but check the individual resource
+                    documentation for more details. Additionally, double-check that you are setting the
+                    <code>Content-Type</code> header correctly on your request (e.g. using
+                    <code>-H "Content-Type: application/json"</code> in cURL).
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        For <strong>400</strong> HTTP codes the response will typically contain one or more validation error messages,
+        for example:
+    </p>
+    <pre>    {
+            "errors": [
+                {
+                    "context": "name",
+                    "message": "The name should be between 1 and 255 characters.",
+                    "exceptionName": null
+                },
+                {
+                    "context": "email",
+                    "message": "The email should be a valid email address.",
+                    "exceptionName": null
+                }
+            ]
+        }
+        </pre>
+    <p>
+        The <code>context</code> attribute indicates which parameter or request entity attribute failed validation. Note
+        that the <code>context</code> may be null.
+    </p>
+    <p>
+        For <strong>401</strong>, <strong>403</strong>, <strong>404</strong> and <strong>409</strong>
+        HTTP codes, the response will contain one or more descriptive error messages:
+    </p>
+    <pre>    {
+            "errors": [
+                {
+                    "context": null,
+                    "message": "A detailed error message.",
+                    "exceptionName": null
+                }
+            ]
+        }
+        </pre>
+    <p>
+        A <strong>500</strong> (Server Error) HTTP code indicates an incorrect resource url or an unexpected server error.
+        Double-check the URL you are trying to access, then report the issue to your server administrator or
+        <a href="https://support.atlassian.com/">Atlassian Support</a> if problems persist.
+    </p>
+    <h2 id="personal-repositories">Personal Repositories</h2>
+    <p>
+        Bitbucket allows users to manage their own repositories, called personal repositories. These are repositories
+        associated
+        with the user and to which they always have REPO_ADMIN permission.
+    </p>
+    <p>
+        Accessing personal repositories via REST is achieved through the normal project-centric REST URLs
+        using the user's slug prefixed by tilde as the project key. E.g. to list personal repositories for a
+        user with slug "johnsmith" you would make a GET to:
+    </p>
+    <pre>http://example.com/rest/api/1.0/projects/~johnsmith/repos</pre>
+    <p></p>
+    <p>
+        In addition to this, Bitbucket allows access to these repositories through an alternate set of user-centric REST
+        URLs
+        beginning with:
+    </p>
+    <pre>http://example.com/rest/api/1.0/users/~{userSlug}/repos</pre>
+    E.g. to list the forks of the repository with slug
+    "nodejs" in the personal project of user with slug "johnsmith" using the regular REST URL you would make a GET to:
+    <pre>http://example.com/rest/api/1.0/projects/~johnsmith/repos/nodejs/forks</pre>
+    Using the alternate URL, you would make a GET to:
+    <pre>http://example.com/rest/api/1.0/users/johnsmith/repos/nodejs/forks</pre>
+    <p></p>
+  title: bitbucket-server-api
+  version: 7.3.1
+servers:
+- url: https://example.com
+security:
+- credentials: []
+tags:
+- description: Operations focusing on projects
+  name: projects
+- description: Operations focusing on repositories
+  name: repositories
+- description: Operations focusing on webhooks
+  name: webhook
+- description: Operations focusing on branches
+  name: branches
+- description: Operations focusing on commits
+  name: commits
+- description: Operations focusing on buildStatus
+  name: buildStatus
+- description: Operations focusing on postWebhooks
+  name: postWebhook
+- description: Operations focusing on pull requests
+  name: pullRequests
+paths:
+  /rest/api/1.0/projects:
+    get:
+      description: |-
+        Retrieve a page of projects.
+
+        Only projects for which the authenticated user has the PROJECT_VIEW permission will be returned.
+      operationId: getProjectsPaged
+      parameters:
+      - description: name to filter by
+        explode: true
+        in: query
+        name: name
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: permission to filter by
+        explode: true
+        in: query
+        name: permission
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/projectsPage'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+      summary: Get Projects
+      tags:
+      - projects
+  /rest/api/1.0/projects/{projectKey}:
+    get:
+      description: |-
+        Retrieve the project matching the supplied projectKey.
+
+        The authenticated user must have PROJECT_VIEW permission for the specified project to call this resource.
+      operationId: getProject
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/project'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: REST resource for working with projects
+      tags:
+      - projects
+  /rest/api/1.0/projects/{projectKey}/repos:
+    get:
+      description: |-
+        Retrieve repositories from the project corresponding to the supplied projectKey.
+
+
+        The authenticated user must have REPO_READ permission for the specified project to call this resource.
+      operationId: getRepositoriesPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/repositoriesPage'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get Repositories
+      tags:
+      - repositories
+    post:
+      description: |-
+        Create a new repository. Requires an existing project in which this repository will be created. The only parameters which will be used are name and scmId.
+
+        The authenticated user must have PROJECT_ADMIN permission for the context project to call this resource.
+      operationId: createRepository
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            examples:
+              example:
+                value:
+                  name: My repo
+                  scmId: git
+                  forkable: true
+                  defaultBranch: main
+            schema:
+              $ref: '#/components/schemas/createRepository'
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/repository'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Conflict
+      summary: Create repository
+      tags:
+      - repositories
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}:
+    get:
+      description: |-
+        Retrieve the repository matching the supplied projectKey and repositorySlug.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getRepository
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/repository'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get Repository
+      tags:
+      - repositories
+  /rest/api/1.0/repos:
+    get:
+      description: |-
+        Retrieve a page of repositories based on query parameters that control the search. See the documentation of the parameters for more details.
+
+        This resource is anonymously accessible.
+
+        Note on permissions. In absence of the permission query parameter the implicit 'read' permission is assumed. Please note that this permission is lower than the REPO_READ permission rather than being equal to it. The implicit 'read' permission for a given repository is assigned to any user that has any of the higher permissions, such as REPO_READ, as well as to anonymous users if the repository is marked as public. The important implication of the above is that an anonymous request to this resource with a permission level REPO_READ is guaranteed to receive an empty list of repositories as a result. For anonymous requests it is therefore recommended to not specify the permission parameter at all.
+      operationId: searchRepositoriesPaged
+      parameters:
+      - description: (optional) if specified, this will limit the resulting repository
+          list to ones whose name matches this parameter's value. The match will be
+          done case-insensitive and any leading and/or trailing whitespace characters
+          on the name parameter will be stripped.
+        explode: true
+        in: query
+        name: name
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: (optional) if specified, this will limit the resulting repository
+          list to ones whose project's name matches this parameter's value. The match
+          will be done case-insensitive and any leading and/or trailing whitespace
+          characters on the projectname parameter will be stripped.
+        explode: true
+        in: query
+        name: projectname
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: (optional) if specified, it must be a valid repository permission
+          level name and will limit the resulting repository list to ones that the
+          requesting user has the specified permission level to. If not specified,
+          the default implicit 'read' permission level will be assumed. The currently
+          supported explicit permission values are REPO_READ, REPO_WRITE and REPO_ADMIN.
+        explode: true
+        in: query
+        name: permission
+        required: false
+        schema:
+          enum:
+          - REPO_READ
+          - REPO_WRITE
+          - REPO_ADMIN
+          type: string
+        style: form
+      - description: |-
+          (optional) if specified, it must be a valid repository state name and will limit the resulting repository list to ones that are in the specified state. The currently supported explicit state values are AVAILABLE, INITIALISING and INITIALISATION_FAILED.
+          Available since 5.13
+        explode: true
+        in: query
+        name: state
+        required: false
+        schema:
+          enum:
+          - AVAILABLE
+          - INITIALISING
+          - INITIALISATION_FAILED
+          type: string
+        style: form
+      - description: (optional) if specified, this will limit the resulting repository
+          list based on the repositories visibility. Valid values are public or private.
+        explode: true
+        in: query
+        name: visibility
+        required: false
+        schema:
+          enum:
+          - public
+          - private
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/repositoriesPage'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+      security:
+      - usernamePassword: []
+      summary: Search repositories
+      tags:
+      - repositories
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/branches:
+    get:
+      description: |-
+        Retrieve the branches matching the supplied filterText param.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getBranchesPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: base branch or tag to compare each branch to (for the metadata
+          providers that uses that information)
+        explode: true
+        in: query
+        name: base
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: whether to retrieve plugin-provided metadata about each branch
+        explode: true
+        in: query
+        name: details
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: the text to match on
+        explode: true
+        in: query
+        name: filterText
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: ordering of refs either ALPHABETICAL (by name) or MODIFICATION
+          (last updated)
+        explode: false
+        in: query
+        name: orderBy
+        required: false
+        schema:
+          enum:
+          - ALPHABETICAL
+          - MODIFICATION
+          type: string
+        style: form
+      - description: controls whether exact and prefix matches will be boosted to
+          the top
+        explode: true
+        in: query
+        name: boostMatches
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/branchesPage'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get Branches
+      tags:
+      - branches
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/browse:
+    get:
+      description: |-
+        Retrieve a page of content for a file path at a specified revision.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: browseRepositoryPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: the commit ID or ref to retrieve the content for.
+        explode: true
+        in: query
+        name: at
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/directory'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: browseRepository
+      tags:
+      - repositories
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/browse/{path}:
+    get:
+      description: |-
+        Retrieve a page of content for a file path at a specified revision.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: browseRepositoryPathPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: path
+        required: true
+        schema:
+          pattern: .*
+          type: string
+        style: simple
+      - description: the commit ID or ref to retrieve the content for.
+        explode: true
+        in: query
+        name: at
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/fileOrDirectory'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: browseRepositoryPath
+      tags:
+      - repositories
+  /rest/webhook/1.0/projects/{projectKey}/repos/{repositorySlug}/configurations:
+    get:
+      description: Returns the registered post webhooks for the repository.
+      operationId: getPostWebhooks
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/postWebhook'
+                type: array
+          description: OK
+      summary: Get Post Webhooks
+      tags:
+      - postWebhook
+  /rest/webhook/1.0/projects/{projectKey}/repos/{repositorySlug}/configurations/{ID}:
+    delete:
+      description: Deletes the post webhook from the repository
+      operationId: deletePostWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: ID
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          description: OK
+      summary: Delete post webhook
+      tags:
+      - postWebhook
+  /rest/build-status/1.0/commits/{commitHash}:
+    get:
+      description: Gets the build statuses associated with a commit.
+      operationId: getBuildStatusesPaged
+      parameters:
+      - explode: false
+        in: path
+        name: commitHash
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: how the results should be ordered. Options are NEWEST, OLDEST,
+          STATUS. Defaults to NEWEST if not provided.
+        explode: true
+        in: query
+        name: orderBy
+        required: false
+        schema:
+          enum:
+          - newest
+          - oldest
+          - status
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/buildStatusPage'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+      summary: Get build statuses
+      tags:
+      - buildStatus
+    post:
+      description: |-
+        Associates a build status with a commit.
+
+        The state, the key and the url are mandatory. The name and description fields are optional.
+
+        All fields (mandatory or optional) are limited to 255 characters, except for the url, which is limited to 450 characters.
+
+        Supported values for the state are SUCCESSFUL, FAILED and INPROGRESS.
+
+        The authenticated user must have LICENSED permission or higher to call this resource.
+      operationId: postBuildResult
+      parameters:
+      - explode: false
+        in: path
+        name: commitHash
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/buildStatus'
+        description: |-
+          Associates a build status with a commit.
+
+          The state, the key and the url are mandatory. The name and description fields are optional.
+
+          All fields (mandatory or optional) are limited to 255 characters, except for the url, which is limited to 450 characters.
+
+          Supported values for the state are SUCCESSFUL, FAILED and INPROGRESS.
+
+          The authenticated user must have LICENSED permission or higher to call this resource.
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+      summary: Post build-result
+      tags:
+      - buildStatus
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/branches/default:
+    get:
+      description: |-
+        Get the default branch of the repository.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getDefaultBranch
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/branch'
+          description: OK
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get default branch
+      tags:
+      - branches
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/commits/{commitId}:
+    get:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Retrieve a single commit identified by its ID. In general, that ID is a SHA1. From 2.11, ref names like "refs/heads/master" are no longer accepted by this resource.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getCommit
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: commitId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: an optional path to filter the commit by. If supplied the details
+          returned may not be for the specified commit. Instead, starting from the
+          specified commit, they will be the details for the first commit affecting
+          the specified path.
+        explode: true
+        in: query
+        name: path
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/commit'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get commit
+      tags:
+      - commits
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/commits:
+    get:
+      description: |-
+        This is a paged API. This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Retrieve a page of commits from a given starting commit or "between" two commits. If no explicit commit is specified, the tip of the repository's default branch is assumed. commits may be identified by branch or tag name or by ID. A path may be supplied to restrict the returned commits to only those which affect that path.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getCommitsPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: if true, the commit history of the specified file will be followed
+          past renames. Only valid for a path to a single file.
+        explode: true
+        in: query
+        name: followRenames
+        required: false
+        schema:
+          default: false
+          type: boolean
+        style: form
+      - description: true to ignore missing commits, false otherwise
+        explode: true
+        in: query
+        name: ignoreMissing
+        required: false
+        schema:
+          default: false
+          type: boolean
+        style: form
+      - description: "\t\nif present, controls how merge commits should be filtered.\
+          \ Can be either exclude, to exclude merge commits, include, to include both\
+          \ merge commits and non-merge commits or only, to only return merge commits."
+        explode: true
+        in: query
+        name: merges
+        required: false
+        schema:
+          enum:
+          - exclude
+          - include
+          - only
+          type: string
+        style: form
+      - description: an optional path to filter commits by
+        explode: true
+        in: query
+        name: path
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: the commit ID or ref (exclusively) to retrieve commits after
+        explode: true
+        in: query
+        name: since
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: the commit ID (SHA1) or ref (inclusively) to retrieve commits
+          before
+        explode: true
+        in: query
+        name: until
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: optionally include the total number of commits and total number
+          of unique authors
+        explode: true
+        in: query
+        name: withCounts
+        required: false
+        schema:
+          default: false
+          type: boolean
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/commitsPage'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get commits
+      tags:
+      - commits
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/webhooks:
+    get:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Find webhooks in this repository.
+
+        The authenticated user must have REPO_ADMIN permission for the specified repository to call this resource.
+      operationId: getWebhooksPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      - description: list of {@link com.atlassian.webhooks.WebhookEvent} ids to filter
+          for
+        explode: true
+        in: query
+        name: event
+        required: false
+        schema:
+          enum:
+          - repo:refs_changed
+          - repo:comment:added
+          - repo:modified
+          - repo:forked
+          - repo:comment:edited
+          - repo:comment:deleted
+          - mirror:repo_synchronized
+          - pr:opened
+          - pr:from_ref_updated
+          - pr:modified
+          - pr:reviewer:updated
+          - pr:reviewer:approved
+          - pr:reviewer:unapproved
+          - pr:reviewer:needs_work
+          - pr:merged
+          - pr:declined
+          - pr:deleted
+          - pr:comment:added
+          - pr:comment:edited
+          - pr:comment:deleted
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/webhooksPage'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get webhooks
+      tags:
+      - webhook
+    post:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Create a webhook for the repository specified via the URL.
+
+        The authenticated user must have REPO_ADMIN permission for the specified repository to call this resource.
+      operationId: createWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/webhook'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/webhook'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Create webhook
+      tags:
+      - webhook
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/webhooks/{webhookId}:
+    delete:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Delete a webhook for the repository specified via the URL.
+
+        The authenticated user must have REPO_ADMIN permission for the specified repository to call this resource.
+      operationId: deleteWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Delete Webhook
+      tags:
+      - webhook
+    get:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Get a webhook by id.
+
+        The authenticated user must have REPO_ADMIN permission for the specified repository to call this resource.
+      operationId: getWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/webhook'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get Webhook
+      tags:
+      - webhook
+    put:
+      description: |
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Update an existing webhook.
+
+        The authenticated user must have REPO_ADMIN permission for the specified repository to call this resource.
+      operationId: updateWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/webhook'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/webhook'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Update webhook
+      tags:
+      - webhook
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests:
+    get:
+      description: |-
+        Retrieve a page of pull requests to or from the specified repository.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource. Optionally clients can specify PR participant filters. Each filter has a mandatory username.N parameter, and the optional role.N and approved.N parameters.
+
+        username.N - the "root" of a single participant filter, where "N" is a natural number starting from 1. This allows clients to specify multiple participant filters, by providing consecutive filters as username.1, username.2 etc. Note that the filters numbering has to start with 1 and be continuous for all filters to be processed. The total allowed number of participant filters is 10 and all filters exceeding that limit will be dropped.
+        role.N(optional) the role associated with username.N. This must be one of AUTHOR, REVIEWER, orPARTICIPANT
+        approved.N(optional) the approved status associated with username.N. That is whether username.N has approved the PR. Either true, or false
+      operationId: getPullRequestsPaged
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: start
+        required: false
+        schema:
+          type: integer
+        style: form
+      - description: (optional, defaults to OPEN). Supply ALL to return pull request
+          in any state. If a state is supplied only pull requests in the specified
+          state will be returned. Either OPEN, DECLINED or MERGED
+        explode: true
+        in: query
+        name: state
+        required: false
+        schema:
+          enum:
+          - ALL
+          - OPEN
+          - MERGED
+          - DECLINED
+          type: string
+        style: form
+      - description: '(optional, defaults to NEWEST) the order to return pull requests
+          in, either OLDEST (as in: "oldest first") or NEWEST.'
+        explode: true
+        in: query
+        name: order
+        required: false
+        schema:
+          enum:
+          - NEWEST
+          - OLDEST
+          type: string
+        style: form
+      - description: (optional) a fully-qualified branch ID to find pull requests
+          to or from, such as refs/heads/master
+        explode: true
+        in: query
+        name: at
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: (optional, defaults to INCOMING) the direction relative to the
+          specified repository. Either INCOMING or OUTGOING.
+        explode: true
+        in: query
+        name: direction
+        required: false
+        schema:
+          enum:
+          - INCOMING
+          - OUTGOING
+          type: string
+        style: form
+      - description: (optional) If specified, only pull requests where the title or
+          description contains the supplied string will be returned.
+        explode: true
+        in: query
+        name: filterText
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pullRequestsPage'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get Pull Request Page
+      tags:
+      - pullRequests
+    post:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Create a new pull request between two branches. The branches may be in the same repository, or different ones. When using different repositories, they must still be in the same {@link Repository#getHierarchyId() hierarchy}.
+
+        The authenticated user must have REPO_READ permission for the "from" and "to"repositories to call this resource.
+      operationId: createPullRequest
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/pullRequest'
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pullRequest'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Conflict
+      summary: Create Pull Request
+      tags:
+      - pullRequests
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}:
+    delete:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Deletes a pull request.
+
+        To call this resource, users must be authenticated and have permission to view the pull request. Additionally, they must:
+
+        be the pull request author, if the system is configured to allow authors to delete their own pull requests (this is the default) OR
+        have repository administrator permission for the repository the pull request is targeting
+        A body containing the version of the pull request must be provided with this request.
+      operationId: deletePullRequest
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: pullRequestId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/pullRequestDelete'
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Delete pull request
+      tags:
+      - pullRequests
+    get:
+      description: |
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Retrieve a pull request.
+
+        The authenticated user must have REPO_READ permission for the repository that this pull request targets to call this resource.
+      operationId: getPullRequest
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: pullRequestId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pullRequest'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get pull request
+      tags:
+      - pullRequests
+    put:
+      description: |
+        Update the title, description, reviewers or destination branch of an existing pull request.
+
+        Note: the reviewers list may be updated using this resource. However the author and participants list may not.
+
+        The authenticated user must either:
+        * be the author of the pull request and have the REPO_READ permission for the repository that this pull request targets; or
+        * have the REPO_WRITE permission for the repository that this pull request targets
+        to call this resource.
+      operationId: updatePullRequest
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: pullRequestId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/pullRequestUpdate'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pullRequest'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Conflict
+      summary: Update pull request
+      tags:
+      - pullRequests
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}.diff:
+    get:
+      description: |-
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Streams the raw diff for a pull request.
+
+        The authenticated user must have REPO_READ permission for the repository that this pull request targets to call this resource.
+      operationId: getDiff
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: pullRequestId
+        required: true
+        schema:
+          type: integer
+        style: simple
+      - description: the number of context lines to include around added/removed lines
+          in the diff
+        explode: true
+        in: query
+        name: contextLines
+        required: false
+        schema:
+          default: -1
+          type: integer
+        style: form
+      - description: optional whitespace flag which can be set to ignore-all
+        explode: true
+        in: query
+        name: whitespaces
+        required: false
+        schema:
+          enum:
+          - ignore-all
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get PR Diff
+      tags:
+      - pullRequests
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}.patch:
+    get:
+      description: |
+        This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Streams a patch representing a pull request.
+
+        The authenticated user must have REPO_READ permission for the repository that this pull request targets to call this resource.
+      operationId: get-rest-api-1.0-projects-projectKey-repos-repositorySlug-pull-requests-pullRequestId-.patch
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: pullRequestId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get PR Patch
+      tags:
+      - pullRequests
+  /rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/default-branch:
+    get:
+      description: |-
+        This is a paged API. This API can also be invoked via a user-centric URL when addressing repositories in personal projects.
+
+        Retrieves the repository's configured default branch.
+
+        Every repository has a configured default branch, but that branch may not actually exist in the repository. For example, a newly-created repository will have a configured default branch even though no branches have been pushed yet.
+
+        The authenticated user must have REPO_READ permission for the specified repository to call this resource.
+      operationId: getConfiguredDefaultBranch
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/defaultBranch'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Not Found
+      summary: Get default branch
+      tags:
+      - repositories
+  /rest/branch-utils/1.0/projects/{projectKey}/repos/{repositorySlug}/branches:
+    delete:
+      description: |-
+        Deletes a branch in the specified repository.
+
+        If the branch does not exist, this operation will not raise an error. In other words after calling this resource and receiving a 204 response the branch provided in the request is guaranteed to not exist in the specified repository any more, regardless of its existence beforehand.
+
+        The optional 'endPoint' parameter of the request may contain a commit ID that the provided ref name is expected to point to. Should the ref point to a different commit ID, a 400 response will be returned with appropriate error details.
+
+        The authenticated user must have an effective REPO_WRITE permission to call this resource. If branch permissions are set up in the repository, the authenticated user must also have access to the branch name that is to be deleted.
+      operationId: deleteBranch
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deleteBranch'
+      responses:
+        "204":
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+      tags:
+      - branches
+    post:
+      description: |-
+        Creates a branch in the specified repository.
+
+        The authenticated user must have an effective REPO_WRITE permission to call this resource. If branch permissions are set up in the repository, the authenticated user must also have access to the branch name that is to be created.
+      operationId: createBranch
+      parameters:
+      - explode: false
+        in: path
+        name: projectKey
+        required: true
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: repositorySlug
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/createBranch'
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/branch'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errors'
+          description: Unauthorized
+      summary: Delete branch
+      tags:
+      - branches
+components:
+  schemas:
+    page:
+      properties:
+        size:
+          type: integer
+        limit:
+          type: integer
+        start:
+          type: integer
+        isLastPage:
+          type: boolean
+        nextPageStart:
+          type: integer
+      required:
+      - isLastPage
+      - limit
+      - size
+      - start
+      title: page
+      type: object
+    project:
+      example:
+        public: true
+        name: name
+        description: description
+        links:
+          self:
+          - name: name
+            href: href
+          - name: name
+            href: href
+        id: 0
+        type: type
+        key: key
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        public:
+          type: boolean
+        type:
+          type: string
+        links:
+          $ref: '#/components/schemas/project_links'
+      required:
+      - description
+      - key
+      - name
+      - public
+      - type
+      title: project
+      type: object
+    projectsPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/projectsPage_allOf'
+      description: A page of projects.
+      title: projects
+      x-examples:
+        Example:
+          size: 1
+          limit: 25
+          isLastPage: true
+          values:
+          - key: PRJ
+            id: 1
+            name: My Cool Project
+            description: The description for my cool project.
+            public: true
+            type: NORMAL
+            links:
+              self:
+              - href: http://link/to/project
+          start: 0
+    errors:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/errors_errors'
+          type: array
+      title: errors
+      type: object
+      x-examples:
+        example:
+          errors:
+          - message: A detailed error message.
+    repository:
+      example:
+        public: true
+        hierarchyId: hierarchyId
+        name: name
+        description: description
+        forkable: true
+        project:
+          public: true
+          name: name
+          description: description
+          links:
+            self:
+            - name: name
+              href: href
+            - name: name
+              href: href
+          id: 0
+          type: type
+          key: key
+        links:
+          clone:
+          - name: name
+            href: href
+          - name: name
+            href: href
+          self:
+          - name: name
+            href: href
+          - name: name
+            href: href
+        id: 0
+        scmId: scmId
+        state: state
+        slug: slug
+        statusMessage: statusMessage
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        hierarchyId:
+          type: string
+        scmId:
+          type: string
+        state:
+          type: string
+        statusMessage:
+          type: string
+        forkable:
+          type: boolean
+        public:
+          type: boolean
+        project:
+          $ref: '#/components/schemas/project'
+        links:
+          $ref: '#/components/schemas/repository_links'
+      required:
+      - description
+      - forkable
+      - name
+      - project
+      - public
+      - slug
+      title: repository
+      type: object
+    link:
+      example:
+        name: name
+        href: href
+      properties:
+        href:
+          type: string
+        name:
+          type: string
+      required:
+      - href
+      title: link
+      type: object
+    repositoriesPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/repositoriesPage_allOf'
+      title: repositoriesPage
+    branch:
+      example:
+        latestCommit: latestCommit
+        isDefault: true
+        metadata:
+          com.atlassian.bitbucket.server.bitbucket-build:build-status-metadata:
+            inProgress: 7
+            failed: 9
+            successful: 2
+          com.atlassian.bitbucket.server.bitbucket-branch:latest-commit-metadata:
+            commiterTimestamp: 5
+            author:
+              emailAddress: emailAddress
+              displayName: displayName
+              name: name
+              active: true
+              id: 1
+              type: type
+              slug: slug
+            authorTimestamp: 5
+            id: id
+            displayId: displayId
+            message: message
+            commiter:
+              emailAddress: emailAddress
+              displayName: displayName
+              name: name
+              active: true
+              id: 1
+              type: type
+              slug: slug
+            parents:
+            - id: id
+              displayId: displayId
+            - id: id
+              displayId: displayId
+          com.atlassian.bitbucket.server.bitbucket-branch:ahead-behind-metadata-provider:
+            behind: 6
+            ahead: 0
+          com.atlassian.bitbucket.server.bitbucket-jira:branch-list-jira-issues:
+          - key: key
+            url: url
+          - key: key
+            url: url
+        latestChangeset: latestChangeset
+        id: id
+        displayId: displayId
+        type: BRANCH
+      properties:
+        id:
+          type: string
+        displayId:
+          type: string
+        type:
+          enum:
+          - BRANCH
+          type: string
+        latestCommit:
+          pattern: '[A-Fa-f0-9]+'
+          type: string
+        latestChangeset:
+          pattern: '[A-Fa-f0-9]+'
+          type: string
+        isDefault:
+          type: boolean
+        metadata:
+          $ref: '#/components/schemas/branchMetadata'
+      required:
+      - displayId
+      - id
+      - isDefault
+      - latestChangeset
+      - latestCommit
+      - type
+      title: branch
+      type: object
+      x-examples:
+        branch:
+          id: refs/heads/master
+          displayId: master
+          type: BRANCH
+          latestCommit: 8d51122def5632836d1cb1026e879069e10a1e13
+          latestChangeset: 8d51122def5632836d1cb1026e879069e10a1e13
+          isDefault: true
+    branchesPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/branchesPage_allOf'
+      title: branches
+    file:
+      properties:
+        start:
+          type: integer
+        size:
+          type: integer
+        isLastPage:
+          type: boolean
+        lines:
+          items:
+            $ref: '#/components/schemas/file_lines'
+          type: array
+      title: file
+      type: object
+    directory:
+      example:
+        path:
+          parent: parent
+          components:
+          - components
+          - components
+          extension: extension
+          name: name
+          toString: toString
+        revision: revision
+      properties:
+        path:
+          $ref: '#/components/schemas/path'
+        revision:
+          type: string
+        children:
+          $ref: '#/components/schemas/children'
+      title: directory
+      type: object
+    path:
+      example:
+        parent: parent
+        components:
+        - components
+        - components
+        extension: extension
+        name: name
+        toString: toString
+      properties:
+        components:
+          items:
+            type: string
+          type: array
+        parent:
+          type: string
+        name:
+          type: string
+        extension:
+          type: string
+        toString:
+          type: string
+      title: path
+      type: object
+    fileOrDirectory:
+      allOf:
+      - $ref: '#/components/schemas/file'
+      - $ref: '#/components/schemas/directory'
+      title: fileOrDirectory
+    children:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/children_allOf'
+      title: children
+    postWebhook:
+      example:
+        branchesToIgnore: branchesToIgnore
+        prDeclined: true
+        prCommented: true
+        prReopened: true
+        title: title
+        enabled: true
+        url: url
+        buildStatus: true
+        prUpdated: true
+        prRescoped: true
+        repoPush: true
+        branchCreated: true
+        committersToIgnore: committersToIgnore
+        branchDeleted: true
+        id: 0
+        prCreated: true
+        tagCreated: true
+        prMerged: true
+      properties:
+        branchCreated:
+          type: boolean
+        branchDeleted:
+          type: boolean
+        branchesToIgnore:
+          type: string
+        buildStatus:
+          type: boolean
+        committersToIgnore:
+          type: string
+        enabled:
+          type: boolean
+        id:
+          type: integer
+        prCommented:
+          type: boolean
+        prCreated:
+          type: boolean
+        prDeclined:
+          type: boolean
+        prMerged:
+          type: boolean
+        prReopened:
+          type: boolean
+        prRescoped:
+          type: boolean
+        prUpdated:
+          type: boolean
+        repoPush:
+          type: boolean
+        tagCreated:
+          type: boolean
+        title:
+          type: string
+        url:
+          type: string
+      required:
+      - branchesToIgnore
+      - committersToIgnore
+      - enabled
+      - id
+      - title
+      - url
+      title: Post Webhook
+      type: object
+      x-examples:
+        example:
+          id: 1136
+          title: Jenkins hook
+          url: https://jenkins.core.build.vwn.cloud/bitbucket-scmsource-hook/notify
+          committersToIgnore: ""
+          branchesToIgnore: ""
+          enabled: true
+          tagCreated: false
+          branchDeleted: true
+          branchCreated: true
+          repoPush: true
+          prDeclined: true
+          prRescoped: true
+          prMerged: true
+          prReopened: true
+          prUpdated: true
+          prCreated: true
+          prCommented: false
+          buildStatus: false
+    buildStatus:
+      properties:
+        state:
+          enum:
+          - SUCCESSFUL
+          - FAILED
+          - INPROGRESS
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        description:
+          type: string
+      required:
+      - description
+      - key
+      - name
+      - state
+      - url
+      title: buildStatus
+      type: object
+      x-examples:
+        example-1:
+          state: SUCCESSFUL
+          key: REPO-MASTER
+          name: REPO-MASTER-42
+          url: https://bamboo.example.com/browse/REPO-MASTER-42
+          description: Changes by John Doe
+    commit:
+      description: A commit
+      example:
+        commiterTimestamp: 5
+        author:
+          emailAddress: emailAddress
+          displayName: displayName
+          name: name
+          active: true
+          id: 1
+          type: type
+          slug: slug
+        authorTimestamp: 5
+        id: id
+        displayId: displayId
+        message: message
+        commiter:
+          emailAddress: emailAddress
+          displayName: displayName
+          name: name
+          active: true
+          id: 1
+          type: type
+          slug: slug
+        parents:
+        - id: id
+          displayId: displayId
+        - id: id
+          displayId: displayId
+      properties:
+        id:
+          type: string
+        displayId:
+          type: string
+        author:
+          $ref: '#/components/schemas/user'
+        authorTimestamp:
+          format: int64
+          type: integer
+        commiter:
+          $ref: '#/components/schemas/user'
+        commiterTimestamp:
+          format: int64
+          type: integer
+        message:
+          type: string
+        parents:
+          items:
+            $ref: '#/components/schemas/commit_parents'
+          type: array
+      required:
+      - author
+      - authorTimestamp
+      - commiter
+      - commiterTimestamp
+      - displayId
+      - id
+      - message
+      title: commit
+      type: object
+      x-examples:
+        example:
+          id: abcdef0123abcdef4567abcdef8987abcdef6543
+          displayId: abcdef0123a
+          author:
+            name: charlie
+            emailAddress: charlie@example.com
+          authorTimestamp: 1597071215598
+          committer:
+            name: charlie
+            emailAddress: charlie@example.com
+          committerTimestamp: 1597071215598
+          message: WIP on feature 1
+          parents:
+          - id: abcdef0123abcdef4567abcdef8987abcdef6543
+            displayId: abcdef0
+    commitsPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/commitsPage_allOf'
+      description: A list of commits
+      title: commits
+    createRepository:
+      properties:
+        name:
+          type: string
+        scmId:
+          default: git
+          enum:
+          - git
+          - mercurial
+          type: string
+        forkable:
+          type: boolean
+        defaultBranch:
+          type: string
+        public:
+          type: boolean
+        description:
+          type: string
+      required:
+      - name
+      title: createRepository
+      type: object
+      x-examples:
+        example:
+          value:
+            name: My repo
+            scmId: git
+            forkable: true
+            defaultBranch: main
+    webhook:
+      example:
+        configuration:
+          secret: secret
+        name: name
+        id: 0
+        updatedDate: 1
+        events:
+        - null
+        - null
+        url: url
+        createDate: 6
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createDate:
+          format: int64
+          type: integer
+        updatedDate:
+          format: int64
+          type: integer
+        events:
+          items:
+            $ref: '#/components/schemas/webhookEvent'
+          type: array
+          uniqueItems: true
+        configuration:
+          $ref: '#/components/schemas/webhook_configuration'
+        url:
+          type: string
+      required:
+      - events
+      - name
+      - url
+      title: webhook
+      type: object
+      x-examples:
+        example-1:
+          id: 10
+          name: Webhook Name
+          createdDate: 1513106011000
+          updatedDate: 1513106011000
+          events:
+          - repo:refs_changed
+          - repo:modified
+          configuration:
+            secret: password
+          url: http://example.com
+          active: true
+    webhookEvent:
+      enum:
+      - repo:refs_changed
+      - repo:comment:added
+      - repo:modified
+      - repo:forked
+      - repo:comment:edited
+      - repo:comment:deleted
+      - mirror:repo_synchronized
+      - pr:opened
+      - pr:from_ref_updated
+      - pr:modified
+      - pr:reviewer:updated
+      - pr:reviewer:approved
+      - pr:reviewer:unapproved
+      - pr:reviewer:needs_work
+      - pr:merged
+      - pr:declined
+      - pr:deleted
+      - pr:comment:added
+      - pr:comment:edited
+      - pr:comment:deleted
+      title: webhookEvent
+      type: string
+    webhooksPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/webhooksPage_allOf'
+      description: A list of webhooks
+      title: webhooks
+    buildStatusPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/buildStatusPage_allOf'
+      title: buildStatusPage
+    branchMetadata:
+      example:
+        com.atlassian.bitbucket.server.bitbucket-build:build-status-metadata:
+          inProgress: 7
+          failed: 9
+          successful: 2
+        com.atlassian.bitbucket.server.bitbucket-branch:latest-commit-metadata:
+          commiterTimestamp: 5
+          author:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          authorTimestamp: 5
+          id: id
+          displayId: displayId
+          message: message
+          commiter:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          parents:
+          - id: id
+            displayId: displayId
+          - id: id
+            displayId: displayId
+        com.atlassian.bitbucket.server.bitbucket-branch:ahead-behind-metadata-provider:
+          behind: 6
+          ahead: 0
+        com.atlassian.bitbucket.server.bitbucket-jira:branch-list-jira-issues:
+        - key: key
+          url: url
+        - key: key
+          url: url
+      properties:
+        com.atlassian.bitbucket.server.bitbucket-branch:ahead-behind-metadata-provider:
+          $ref: '#/components/schemas/branchMetadataAheadBehind'
+        com.atlassian.bitbucket.server.bitbucket-branch:latest-commit-metadata:
+          $ref: '#/components/schemas/commit'
+        com.atlassian.bitbucket.server.bitbucket-build:build-status-metadata:
+          $ref: '#/components/schemas/branchMetadataBuildStatus'
+        com.atlassian.bitbucket.server.bitbucket-ref-metadata:outgoing-pull-request-metadata:
+          $ref: '#/components/schemas/branchMetadataOutgoingPullRequest'
+        com.atlassian.bitbucket.server.bitbucket-jira:branch-list-jira-issues:
+          items:
+            $ref: '#/components/schemas/branchMetadataJiraIssue'
+          type: array
+      title: branchMetadata
+      type: object
+    branchMetadataAheadBehind:
+      example:
+        behind: 6
+        ahead: 0
+      properties:
+        ahead:
+          type: integer
+        behind:
+          type: integer
+      required:
+      - ahead
+      - behind
+      title: branchMetadataAheadBehind
+      type: object
+    branchMetadataBuildStatus:
+      example:
+        inProgress: 7
+        failed: 9
+        successful: 2
+      properties:
+        successful:
+          type: integer
+        inProgress:
+          type: integer
+        failed:
+          type: integer
+      required:
+      - failed
+      - inProgress
+      - successful
+      title: branchMetadataBuildStatus
+      type: object
+    branchMetadataJiraIssue:
+      example:
+        key: key
+        url: url
+      properties:
+        key:
+          type: string
+        url:
+          type: string
+      required:
+      - key
+      - url
+      title: branchMetadataJiraIssue
+      type: object
+    pullRequestsPage:
+      allOf:
+      - $ref: '#/components/schemas/page'
+      - $ref: '#/components/schemas/pullRequestsPage_allOf'
+      title: pullRequests
+      x-examples:
+        example-1: {}
+    pullRequest:
+      example:
+        author:
+          approved: true
+          role: PARTICIPANT
+          user:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          status: UNAPPROVED
+        description: description
+        updatedDate: 5
+        title: title
+        version: 6
+        reviewers:
+        - approved: true
+          role: PARTICIPANT
+          user:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          status: UNAPPROVED
+        - approved: true
+          role: PARTICIPANT
+          user:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          status: UNAPPROVED
+        toRef:
+          id: id
+          repository:
+            name: name
+            project:
+              key: key
+            slug: slug
+        createdDate: 1
+        closed: true
+        fromRef:
+          id: id
+          repository:
+            name: name
+            project:
+              key: key
+            slug: slug
+        links:
+          self:
+          - name: name
+            href: href
+          - name: name
+            href: href
+        id: 0
+        locked: true
+        open: true
+        participants:
+        - approved: true
+          role: PARTICIPANT
+          user:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          status: UNAPPROVED
+        - approved: true
+          role: PARTICIPANT
+          user:
+            emailAddress: emailAddress
+            displayName: displayName
+            name: name
+            active: true
+            id: 1
+            type: type
+            slug: slug
+          status: UNAPPROVED
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        state:
+          $ref: '#/components/schemas/pullRequestState'
+        open:
+          type: boolean
+        closed:
+          type: boolean
+        createdDate:
+          format: int64
+          type: integer
+        updatedDate:
+          format: int64
+          type: integer
+        fromRef:
+          $ref: '#/components/schemas/repositoryRef'
+        toRef:
+          $ref: '#/components/schemas/repositoryRef'
+        locked:
+          type: boolean
+        author:
+          $ref: '#/components/schemas/userRole'
+        reviewers:
+          items:
+            $ref: '#/components/schemas/userRole'
+          type: array
+        participants:
+          items:
+            $ref: '#/components/schemas/userRole'
+          type: array
+        links:
+          $ref: '#/components/schemas/project_links'
+      required:
+      - description
+      - fromRef
+      - title
+      - toRef
+      title: pullRequest
+      type: object
+      x-examples:
+        example-1: {}
+    user:
+      example:
+        emailAddress: emailAddress
+        displayName: displayName
+        name: name
+        active: true
+        id: 1
+        type: type
+        slug: slug
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        emailAddress:
+          type: string
+        displayName:
+          type: string
+        active:
+          type: boolean
+        slug:
+          type: string
+        type:
+          type: string
+      required:
+      - name
+      title: user
+      type: object
+      x-examples:
+        example-1:
+          name: jcitizen
+          emailAddress: jane@example.com
+          id: 101
+          displayName: Jane Citizen
+          active: true
+          slug: jcitizen
+          type: NORMAL
+          directoryName: Bitbucket Internal Directory
+          deletable: true
+          lastAuthenticationTimestamp: 1368145580548
+          mutableDetails: true
+          mutableGroups: true
+    userRole:
+      example:
+        approved: true
+        role: PARTICIPANT
+        user:
+          emailAddress: emailAddress
+          displayName: displayName
+          name: name
+          active: true
+          id: 1
+          type: type
+          slug: slug
+        status: UNAPPROVED
+      properties:
+        user:
+          $ref: '#/components/schemas/user'
+        role:
+          enum:
+          - PARTICIPANT
+          - REVIEWER
+          - AUTHOR
+          type: string
+        approved:
+          type: boolean
+        status:
+          enum:
+          - UNAPPROVED
+          - APPROVED
+          type: string
+      required:
+      - user
+      title: userRole
+      type: object
+    repositoryRef:
+      example:
+        id: id
+        repository:
+          name: name
+          project:
+            key: key
+          slug: slug
+      properties:
+        id:
+          type: string
+        repository:
+          $ref: '#/components/schemas/repositoryRef_repository'
+      required:
+      - id
+      - repository
+      title: repositoryRef
+      type: object
+    pullRequestState:
+      enum:
+      - OPEN
+      - MERGED
+      - DECLINED
+      title: pullRequestState
+      type: string
+    pullRequestUpdate:
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        reviewers:
+          items:
+            $ref: '#/components/schemas/userRole'
+          type: array
+        toRef:
+          $ref: '#/components/schemas/repositoryRef'
+      title: pullRequestUpdate
+      type: object
+    pullRequestDelete:
+      properties:
+        version:
+          type: integer
+      title: pullRequestDelete
+      type: object
+    defaultBranch:
+      example:
+        id: id
+        displayId: displayId
+        type: type
+      properties:
+        id:
+          type: string
+        displayId:
+          type: string
+        type:
+          type: string
+      required:
+      - displayId
+      - id
+      - type
+      title: defaultBranch
+      type: object
+    branchMetadataOutgoingPullRequest:
+      oneOf:
+      - $ref: '#/components/schemas/branchMetadataOutgoingPullRequest_oneOf'
+      - $ref: '#/components/schemas/branchMetadataOutgoingPullRequest_oneOf_1'
+      title: branchMetadataOutgoingPullRequest
+      type: object
+      x-one-of-name: BranchMetadataOutgoingPullRequest
+    createBranch:
+      properties:
+        name:
+          type: string
+        startPoint:
+          type: string
+        message:
+          type: string
+      required:
+      - name
+      - startPoint
+      title: createBranch
+      type: object
+    deleteBranch:
+      properties:
+        name:
+          type: string
+        dryRun:
+          type: boolean
+        endPoint:
+          type: string
+      required:
+      - dryRun
+      - name
+      title: deleteBranch
+      type: object
+      x-examples:
+        example-1:
+          name: refs/heads/my-branch
+          dryRun: false
+          endPoint: master
+    project_links:
+      example:
+        self:
+        - name: name
+          href: href
+        - name: name
+          href: href
+      properties:
+        self:
+          items:
+            $ref: '#/components/schemas/link'
+          type: array
+    projectsPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/project'
+          type: array
+      required:
+      - values
+    errors_errors:
+      properties:
+        context:
+          type: string
+        message:
+          type: string
+        exceptionName:
+          type: string
+      required:
+      - message
+    repository_links:
+      example:
+        clone:
+        - name: name
+          href: href
+        - name: name
+          href: href
+        self:
+        - name: name
+          href: href
+        - name: name
+          href: href
+      properties:
+        clone:
+          items:
+            $ref: '#/components/schemas/link'
+          type: array
+        self:
+          items:
+            $ref: '#/components/schemas/link'
+          type: array
+    repositoriesPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/repository'
+          type: array
+      required:
+      - values
+    branchesPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/branch'
+          type: array
+      required:
+      - values
+    file_lines:
+      properties:
+        text:
+          type: string
+    children_allOf_values:
+      properties:
+        path:
+          $ref: '#/components/schemas/path'
+        contentId:
+          type: string
+        type:
+          enum:
+          - FILE
+          type: string
+        size:
+          type: string
+        node:
+          type: string
+      required:
+      - type
+    children_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/children_allOf_values'
+          type: array
+    commit_parents:
+      example:
+        id: id
+        displayId: displayId
+      properties:
+        id:
+          type: string
+        displayId:
+          type: string
+    commitsPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/commit'
+          type: array
+        authorCount:
+          type: integer
+        totalCount:
+          type: integer
+      required:
+      - values
+    webhook_configuration:
+      example:
+        secret: secret
+      properties:
+        secret:
+          type: string
+    webhooksPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/webhook'
+          type: array
+      required:
+      - values
+    buildStatusPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/buildStatus'
+          type: array
+      required:
+      - values
+    pullRequestsPage_allOf:
+      properties:
+        values:
+          items:
+            $ref: '#/components/schemas/pullRequest'
+          type: array
+      required:
+      - values
+    repositoryRef_repository_project:
+      example:
+        key: key
+      properties:
+        key:
+          type: string
+      required:
+      - key
+    repositoryRef_repository:
+      example:
+        name: name
+        project:
+          key: key
+        slug: slug
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        project:
+          $ref: '#/components/schemas/repositoryRef_repository_project'
+      required:
+      - project
+      - slug
+    branchMetadataOutgoingPullRequest_oneOf:
+      properties:
+        pullRequest:
+          $ref: '#/components/schemas/pullRequest'
+      required:
+      - pullRequest
+    branchMetadataOutgoingPullRequest_oneOf_1:
+      properties:
+        open:
+          type: integer
+        merged:
+          type: integer
+        declined:
+          type: integer
+      required:
+      - declined
+      - merged
+      - open
+  securitySchemes:
+    usernamePassword:
+      scheme: basic
+      type: http
